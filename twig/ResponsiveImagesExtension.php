@@ -84,7 +84,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
         }
 
         if ($srcsetAttribute || $sizesAttribute)
-            $result = "${imageElementStart}[[SRCSET]]$srcsetAttribute${sizesAttribute}[[/SRCSET]]$otherAttributes>";
+            $result = "${imageElementStart}$srcsetAttribute${sizesAttribute}$otherAttributes>";
         else
             $result = "$imageElementStart$otherAttributes>";
 
