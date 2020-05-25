@@ -1,6 +1,6 @@
 # Responsive Images Plugin
 
-The **Responsive Images** plugin is for [Grav CMS](http://github.com/getgrav/grav). It provides a Twig function to generate a responsive HTML image element (using `srcset`) for a set of pre-rendered image files.
+The **Responsive Images** plugin is for the [Grav CMS](http://github.com/getgrav/grav). It provides a Twig function to generate a responsive HTML image element (using `srcset`) for a set of pre-rendered image files.
 
 The plugin also includes a special workaround for the Microsoft Edge browser, which intermittently displays distorted images as soon it encounters a `srcset` attribute (see [here for details](http://caniuse.com/#search=srcset)). 
 
@@ -61,6 +61,8 @@ To display the image in a Grav page or Twig template, use:
 ```
 {{ image_element("images/chasing_stars-*.jpg", sizes="(min-width: 1200px) 1200px, 100vw", title="Chasing Stars") }}
 ```
+
+> NOTE: Remember to [enable Twig processing](https://learn.getgrav.org/content/headers#process) on every page using the `image_element` function. 
 
 This will generate the following HTML code:
 ```html
