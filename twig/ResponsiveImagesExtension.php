@@ -1,73 +1,87 @@
-<?php
+<?php /** @noinspection PhpFullyQualifiedNameUsageInspection */
+
+/**
+ * @package Grav\Plugin
+ *
+ * This Twig extension provides the Twig functions for responsive images.
+ */
 
 namespace Grav\Plugin;
 
 use Grav\Common\Grav;
 
+
 /**
- * @package Grav\Plugin
+ * Class ResponsiveImagesExtension is a Twig Extension providing functions for responsive images.
  *
- * This Twig extension provides the Twig function 'image_element'.
+ * @package Grav\Plugin
  */
 class ResponsiveImagesExtension extends \Twig_Extension
 {
+    /** @var bool controls whether debug comments should appear in generated CSS code */
+    public static $debug;
+    /** @var int display pixel density factors relative to 1px (must be in ascending order) */
+    public static $displayPixelDensities = [1, 1.5, 2, 3, 4];
+
+    /** @var Grav */
     protected $grav;
+    /** @var bool */
+    private $backgroundImageCount = 0;  // count of generated background images
+    /** @var float[] */
 
     public function __construct()
     {
         $this->grav = Grav::instance();
+        ResponsiveImagesExtension::$debug = $this->grav['config']->get('system.images.debug', false);
     }
 
-    /**
-     * Returns the extension name.
-     * @return string
-     */
-    public function getName()
+    /** Returns the extension name. */
+    public function getName(): string
     {
         return 'ResponsiveImagesExtension';
     }
 
-    public function getFunctions()
+    /**
+     * Returns this plugin's Twig functions.
+     * @return \Twig_SimpleFunction[]
+     */
+    public function getFunctions(): array
     {
         return [
-            new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['is_variadic' => true])
+            new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['is_variadic' => true]),
+            new \Twig_SimpleFunction('background_image_class', [$this, 'backgroundImageClass'], ['is_variadic' => true])
         ];
     }
 
     /**
-     * Returns code generating an html image element with the proper set of attributes for the browser at page delivery
-     * time.
+     * Returns an HTML &lt;img> element with a srcset attribute auto-generated from available image sources.
      *
-     * @param string $path          image path or pattern
-     * @param string $baseWidth     width used for 'src' attribute
-     * @param array  $attributes    img element attributes
+     * @param string $path image path or pattern
+     * @param string $baseWidth width used for 'src' attribute
+     * @param array $attributes img element attributes
      * @return string
      */
-    public function imageElement($path, $baseWidth = null, array $attributes = [])
+    public function imageElement(string $path, string $baseWidth = null, array $attributes = []): string
     {
-        $widths = $this->widthsFromImagePathPattern($path);
+        $descendingImageWidths = $this->widthsFromImagePathPattern($path, $sortAscending = false);
 
-        $widthCount = count($widths);
+        $widthCount = count($descendingImageWidths);
 
-        if ($widthCount > 0) {
-            if ($baseWidth === null)
-                $baseWidth = $widths[($widthCount > 1 ? 1 : 0)];  // use second width, if available, else first
-        }
+        if ($widthCount > 0 && $baseWidth === null)
+            $baseWidth = $descendingImageWidths[($widthCount > 1 ? 1 : 0)];  // use second width, if available, else first
 
         $imageElementStart = '<img src="' . $this->imageURL($path, $baseWidth) . '"';
 
-        $srcsetAttribute = '';
         if ($widthCount > 1) {
-            $srcsetAttribute .= ' srcset="';
-            $separator = '';
+            // With srcset, the first matching width wins. We specify images in descending width order
+            // to get the largest matching image for best quality.
+            $srcsetElements = [];
+            foreach ($descendingImageWidths as $width)
+                $srcsetElements[] = $this->imageURL($path, $width) . ' ' . intval($width) . 'w';
 
-            foreach ($widths as $width) {
-                $srcsetAttribute .= $separator . $this->imageURL($path, $width) . ' ' . intval($width) .'w';
-                $separator = ', ';
-            }
-
-            $srcsetAttribute .= '"';
-        }
+            $srcsetAttribute = ' srcset="' . implode(', ', $srcsetElements) . '"';
+        } else
+            $srcsetAttribute = '';
 
         $sizesAttribute = '';
         $otherAttributes = '';
@@ -84,19 +98,111 @@ class ResponsiveImagesExtension extends \Twig_Extension
         }
 
         if ($srcsetAttribute || $sizesAttribute)
-            $result = "${imageElementStart}$srcsetAttribute${sizesAttribute}$otherAttributes>";
+            return "${imageElementStart}$srcsetAttribute${sizesAttribute}$otherAttributes>";
         else
-            $result = "$imageElementStart$otherAttributes>";
-
-        return $result;
+            return "$imageElementStart$otherAttributes>";
     }
 
     /**
-     * Returns the width designations from files matching $pathPattern in descending numerical order.
-     * @param string $pathPattern image path pattern containing a single '*' as a placeholder for width designations
+     * Returns the name of a CSS class auto-generated to display a responsive background image.
+     *
+     * May be invoked with the parameters described below, or with an associative array containing named parameters.
+     *
+     * @param string|array $path image path or pattern
+     * @param string|null $baseWidth default width
+     * @param string|null $sizes srcset/sizes-like attribute ('min-width' media queries, 'px' and 'vw' slot widths only)
+     * @param array $properties additional CSS background properties
+     * @return string
+     */
+    public function backgroundImageClass(
+        $path, string $baseWidth = null, string $sizes = null, array $properties = []
+    ): string
+    {
+        if (is_array($path)) {
+            // Parse parameters from associative array (used when called with a YAML mapping as its parameter)
+            $parameters = $path;
+            if (!array_key_exists("path", $parameters))
+                throw new \InvalidArgumentException("Required parameter 'path' is missing");
+            $path = $parameters["path"];
+            unset($parameters["path"]);
+            if (array_key_exists("baseWidth", $parameters)) {
+                $baseWidth = $parameters["baseWidth"];
+                unset($parameters["baseWidth"]);
+            }
+            if (array_key_exists("sizes", $parameters)) {
+                $sizes = $parameters["sizes"];
+                unset($parameters["sizes"]);
+            }
+            $properties = $parameters;
+        } else {
+            if (!$path)
+                throw new \InvalidArgumentException("Required parameter 'path' is missing");
+        }
+
+        $ascendingImageSourceWidths = $this->widthsFromImagePathPattern($path, $sortAscending = true);
+        $imageSourceCount = count($ascendingImageSourceWidths);
+
+        if ($imageSourceCount > 0 && $baseWidth === null) {
+            // use second largest width, if available, else first
+            $baseWidth = $ascendingImageSourceWidths[($imageSourceCount > 1 ? $imageSourceCount - 2 : $imageSourceCount - 1)];
+        }
+
+        $this->backgroundImageCount += 1;
+        $className = "ri-background-image-$this->backgroundImageCount";
+
+        // Generate the basic CSS class with generic properties.
+        $css = ".$className {";
+        $css .= " background-image: url('" . $this->imageURL($path, $baseWidth) . "');";
+        foreach ($properties as $propertyName => $propertyValue)
+            $css .= " background-$propertyName: $propertyValue;";
+        $css .= " }\n";
+
+        // Add CSS code for alternative image sources at different sizes.
+        if ($imageSourceCount > 1) {
+            if (ResponsiveImagesExtension::$debug)
+                $css .= $sizes ? "/* sizes='$sizes' */\n" : "/* sizes not specified */\n";
+
+            $conditionalSizeList = new ResponsiveImagesExtension\ConditionalSizeList($sizes);
+
+            // With media queries, like everywhere else in CSS, the last matching rule wins. Code for images sources
+            // is generated in ascending width order, so that the largest matching image wins.
+            $isSmallestImageSource = true;
+            foreach ($ascendingImageSourceWidths as $imageSourceWidth) {
+                $mediaQueryList = $conditionalSizeList->mediaQueryList($imageSourceWidth);
+
+                if ($isSmallestImageSource || $mediaQueryList->containsElements()) {
+                    $imageUrl = $this->imageURL($path, $imageSourceWidth);
+                    if ($isSmallestImageSource) {
+                        // The smallest image acts as a fallback. It gets a media condition which is always true.
+                        $mediaQueryListCss = "(min-width: 0px)";
+                        if (ResponsiveImagesExtension::$debug)
+                            $mediaQueryListCss .= " /* fallback */";
+                    } else
+                        $mediaQueryListCss = $mediaQueryList->css();
+
+                    $css .= "@media\n";
+                    $css .= " $mediaQueryListCss {\n";
+                    $css .= " .$className { background-image: url('" . $imageUrl . "'); }\n";
+                    $css .= "}\n";
+                }
+
+                $isSmallestImageSource = false;
+            }
+        }
+
+        $this->grav['assets']->addInlineCss($css);
+
+        return "$className";
+    }
+
+    /**
+     * Returns the width designations from files matching $pathPattern in the numerical order requested.
+     *
+     * @param string $pathPattern : image path pattern containing a single '*' as a placeholder for width designations
+     * @param boolean $sortAscending : true if images should be sorted in ascending size order (otherwise descending)
      * @return string[]
      */
-    private function widthsFromImagePathPattern($pathPattern)
+    private function widthsFromImagePathPattern(string $pathPattern, bool $sortAscending): array
     {
         $locator = $this->grav['locator'];
 
@@ -115,19 +221,24 @@ class ResponsiveImagesExtension extends \Twig_Extension
                 $result[] = $matches[1];
         }
 
-        if (!empty($result))
-            rsort($result, SORT_NUMERIC);
+        if (!empty($result)) {
+            if ($sortAscending)
+                sort($result, SORT_NUMERIC);
+            else
+                rsort($result, SORT_NUMERIC);
+        }
 
         return $result;
     }
 
     /**
      * Returns the image URL from $pathPattern with '*' replaced by $width, if not null.
+     *
      * @param string $pathPattern image path pattern containing a single '*' as a placeholder for width designations
      * @param string $width width designation
      * @return string
      */
-    private function imageURL($pathPattern, $width)
+    private function imageURL(string $pathPattern, string $width): string
     {
         if ($width === null)
             $path = $pathPattern;
@@ -135,5 +246,253 @@ class ResponsiveImagesExtension extends \Twig_Extension
             $path = str_replace('*', $width, $pathPattern);
 
         return $this->grav['twig']->processString("{{ url(\"$path\") }}");
+    }
+}
+
+
+namespace Grav\Plugin\ResponsiveImagesExtension;
+
+use Grav\Plugin\ResponsiveImagesExtension;
+
+
+/**
+ * ConditionalSizeList is an ordered list of conditional sizes. The list is defined by a string configuration
+ * mimicking the 'sizes' value of an HTML &lt;img> tag.
+ *
+ * Example: (min-width: 1200px) 1200px, 100vw
+ *
+ * @package Grav\Plugin\ResponsiveImagesExtension
+ */
+class ConditionalSizeList
+{
+    /** @var ConditionalSize[] */
+    public $elements;
+
+    /**
+     * @param string|null $configuration
+     */
+    public function __construct($configuration)
+    {
+        if ($configuration !== null) {
+            $this->elements = [];
+            foreach (preg_split("/\s*,\s*/", $configuration) as $conditionalSizeConfiguration)
+                $this->elements[] = new ConditionalSize($conditionalSizeConfiguration);
+        } else
+            $this->elements = [new ConditionalSize("100vw")];
+    }
+
+    /**
+     * Returns media queries for an image according to this list's conditions and sizes.
+     *
+     * @param string $imageSourceWidth
+     * @return MediaQueryList
+     */
+    public function mediaQueryList(string $imageSourceWidth): MediaQueryList
+    {
+        $result = new MediaQueryList();
+
+        // Add media queries for matching conditions and sizes.
+        foreach ($this->elements as $conditionalSize)
+            $result->addCandidates($conditionalSize, $imageSourceWidth);
+
+        return $result;
+    }
+}
+
+
+/**
+ * A ConditionalSize is a combination of an optional media condition and an image's target slot size.
+ * It corresponds to an element of the HTML &lt;img> tag's 'sizes' value, restricted to
+ *
+ * * an optional media condition of `min-width` in `px`
+ * * a mandatory target slot size of either
+ *     * an absolute width in `px` or
+ *     * a width relative to the viewport width in `vw`.
+ *
+ * Example 1: (min-width: 1200px) 1200px
+ * Example 2: 100vw
+ *
+ * @package Grav\Plugin\ResponsiveImagesExtension
+ */
+class ConditionalSize
+{
+    /** @var int the minimum viewport width condition in px, or 0 (which equals unconditional) */
+    private $minViewportWidthPxCondition;
+
+    /** @var int|null an absolute slot width in px, or null */
+    private $targetSlotWidthPx = null;
+    /** @var float|null a relative slot width expressed as a factor of the viewport width, or null */
+    private $targetSlotWidthFactor = null;
+
+    /** @var string the conditional size's original configuration (for debug output only) */
+    public $configuration;
+
+    public function __construct(string $configuration)
+    {
+        $this->configuration = $configuration;
+
+        if (!preg_match("/^(?:\(min-width:\s*(\d+)px\)\s+)?(\d+)(px|vw)$/", $configuration, $matches)) {
+            throw new \InvalidArgumentException(
+                "Unsupported syntax '$configuration' in parameter 'sizes',"
+                . " use '(min-width: 1234px) 1234px' or '(min-width: 1234px) 12vw'"
+            );
+        }
+
+        $this->minViewportWidthPxCondition = $matches[1] ? intval($matches[1]) : 0;
+        $targetSlotWidth = intval($matches[2]);
+        if ($matches[3] == "px")
+            $this->targetSlotWidthPx = $targetSlotWidth;
+        else
+            $this->targetSlotWidthFactor = $targetSlotWidth / 100;
+    }
+
+    /**
+     * Returns media queries matching this condition, according to target slot size and image size.
+     *
+     * @param int $imageSourceWidth
+     * @return MediaQuery[]
+     */
+    public function mediaQueries(int $imageSourceWidth): array
+    {
+        /** @var MediaQuery[] $results */
+        $results = [];
+
+        if ($this->targetSlotWidthPx !== null) {  // absolute target slot width
+            $imageDensity = floor(($imageSourceWidth / $this->targetSlotWidthPx) * 100) / 100;
+            if ($imageDensity >= 1)
+                $results[] = new MediaQuery($imageDensity, $this->minViewportWidthPxCondition, $this);
+        } else {  // target slot width relative to the viewport width
+            foreach (ResponsiveImagesExtension::$displayPixelDensities as $displayPixelDensity) {
+                $imageWidthPx = $imageSourceWidth / $displayPixelDensity;
+                $viewportWidth = floor($imageWidthPx / $this->targetSlotWidthFactor);
+                if ($viewportWidth >= $this->minViewportWidthPxCondition)
+                    $results[] = new MediaQuery($displayPixelDensity, $viewportWidth, $this);
+            }
+        }
+
+        return $results;
+    }
+}
+
+
+/**
+ * MediaQueryList is a list of media queries for one responsive image.
+ *
+ * @package Grav\Plugin\ResponsiveImagesExtension
+ */
+class MediaQueryList
+{
+    /** @var MediaQuery[] */
+    private $_elements = [];
+    /** @var MediaQuery[] */
+    private $elementsByDensity = [];
+
+    /**
+     * Adds media queries for a conditional size and image size, filtering out those candidates, which
+     * are matched by other media queries already included.
+     *
+     * @param ConditionalSize $conditionalSize
+     * @param int $imageSourceWidth
+     */
+    public function addCandidates(ConditionalSize $conditionalSize, int $imageSourceWidth): void
+    {
+        $candidatesToAdd = $conditionalSize->mediaQueries($imageSourceWidth);
+        $elementsToAdd = [];
+
+        foreach ($candidatesToAdd as $candidate) {
+            $displayPixelDensityKey = $candidate->displayPixelDensityKey();
+            if (isset($this->elementsByDensity[$displayPixelDensityKey])) {
+                $this->elementsByDensity[$displayPixelDensityKey]->integrateAlternative($candidate);
+            } else {
+                $this->elementsByDensity[$displayPixelDensityKey] = $candidate;
+                $elementsToAdd[] = $candidate;
+            }
+        }
+
+        if ($elementsToAdd)
+            $this->_elements = array_merge($elementsToAdd, $this->_elements);
+    }
+
+    public function containsElements(): bool
+    {
+        return !empty($this->_elements);
+    }
+
+    public function css(): string
+    {
+        $resultElements = [];
+
+        foreach ($this->_elements as $mediaQuery)
+            $resultElements[] = $mediaQuery->css();
+
+        return implode(",\n ", $resultElements);
+    }
+}
+
+
+/**
+ * MediaQuery is a CSS media query.
+ *
+ * @package Grav\Plugin\ResponsiveImagesExtension
+ */
+class MediaQuery
+{
+    /** @var float */
+    private $displayPixelDensity;
+    /** @var int */
+    private $minWidthPx;
+    /** @var ConditionalSize[] origins of this media query, the first one of which is the actual generator */
+    private $origins;
+
+    public function __construct(float $displayPixelDensity, int $minWidthPx, ConditionalSize $origin)
+    {
+        $this->displayPixelDensity = $displayPixelDensity;
+        $this->minWidthPx = $minWidthPx;
+        $this->origins = [$origin];
+    }
+
+    /** Returns the media query's display density as an array key, avoiding an implicit float->int conversion. */
+    public function displayPixelDensityKey(): string
+    {
+        return strval($this->displayPixelDensity);
+    }
+
+    /** Integrates an alternative with an identical pixel density.
+     * @param MediaQuery $alternative
+     */
+    public function integrateAlternative(MediaQuery $alternative): void
+    {
+        if ($alternative->minWidthPx < $this->minWidthPx) {
+            // If an alternative has a less restrictive media condition, use it.
+            $this->minWidthPx = $alternative->minWidthPx;
+            // Indicate its prioritization by adding its origin at the beginning.
+            array_unshift($this->origins, $alternative->origins[0]);
+        } else
+            $this->origins[] = $alternative->origins[0];
+    }
+
+    public function css(): string
+    {
+        // Support modern browsers according to https://caniuse.com/#feat=css-media-resolution
+
+        $displayResolutionDPI = $this->displayPixelDensity * 96;
+        $minWidthCondition = "(min-width: {$this->minWidthPx}px)";
+
+        $css = "(-webkit-min-device-pixel-ratio: $this->displayPixelDensity) and $minWidthCondition,";
+        $css .= " (min-resolution: ${displayResolutionDPI}dpi) and $minWidthCondition";
+
+        if (ResponsiveImagesExtension::$debug)
+            $css .=  $this->originsComment();
+
+        return $css;
+    }
+
+    private function originsComment(): string
+    {
+        $originConfigurations = [];
+        foreach ($this->origins as $origin)
+            $originConfigurations[] = $origin->configuration;
+
+        return " /* " . implode(", ", $originConfigurations) . " */";
     }
 }
