@@ -1,3 +1,13 @@
+# v3.0.0
+## 01-03-2021
+
+1. [](#new)
+    * Added support for page-relative image links ([#1](https://github.com/OliverO2/grav-plugin-responsive-images/issues/1)). **UPGRADE NOTE:** Formerly relative image paths must now be changed to absolute ones. Paths will be interpreted in a way consistent with Grav's documentation on [Image Linking](https://learn.getgrav.org/16/content/image-linking).
+1. [](#improved)
+    * Documented using background images in page content ([#2](https://github.com/OliverO2/grav-plugin-responsive-images/issues/2)).
+1. [](#improved)
+    * Added support for Grav 1.7 with Twig auto-escaping enabled by default. This plugin's Twig functions can be used with auto-escape enabled without requiring the `...|raw` filter.
+
 # v2.0.3
 ## 30-05-2020
 
