@@ -57,27 +57,28 @@ class ResponsiveImagesExtension extends \Twig_Extension
      * Returns an HTML &lt;img> element with a srcset attribute auto-generated from available image sources.
      *
      * @param string $path image path or pattern
-     * @param string $baseWidth width used for 'src' attribute
+     * @param string|null $baseWidth width used for 'src' attribute
      * @param array $attributes img element attributes
      * @return string
      */
     public function imageElement(string $path, string $baseWidth = null, array $attributes = []): string
     {
-        $descendingImageWidths = $this->widthsFromImagePathPattern($path, $sortAscending = false);
+        $imageVector = new ResponsiveImagesExtension\ImageVector($path);
+        $descendingImageWidths = $imageVector->widths($sortAscending = false);
 
         $widthCount = count($descendingImageWidths);
 
         if ($widthCount > 0 && $baseWidth === null)
             $baseWidth = $descendingImageWidths[($widthCount > 1 ? 1 : 0)];  // use second width, if available, else first
 
-        $imageElementStart = '<img src="' . $this->imageURL($path, $baseWidth) . '"';
+        $imageElementStart = '<img src="' . $imageVector->url($baseWidth) . '"';
 
         if ($widthCount > 1) {
             // With srcset, the first matching width wins. We specify images in descending width order
             // to get the largest matching image for best quality.
             $srcsetElements = [];
             foreach ($descendingImageWidths as $width)
-                $srcsetElements[] = $this->imageURL($path, $width) . ' ' . intval($width) . 'w';
+                $srcsetElements[] = $imageVector->url($width) . ' ' . intval($width) . 'w';
 
             $srcsetAttribute = ' srcset="' . implode(', ', $srcsetElements) . '"';
         } else
@@ -139,7 +140,8 @@ class ResponsiveImagesExtension extends \Twig_Extension
                 throw new \InvalidArgumentException("Required parameter 'path' is missing");
         }
 
-        $ascendingImageSourceWidths = $this->widthsFromImagePathPattern($path, $sortAscending = true);
+        $imageVector = new ResponsiveImagesExtension\ImageVector($path);
+        $ascendingImageSourceWidths = $imageVector->widths($sortAscending = true);
         $imageSourceCount = count($ascendingImageSourceWidths);
 
         if ($imageSourceCount > 0 && $baseWidth === null) {
@@ -152,7 +154,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
 
         // Generate the basic CSS class with generic properties.
         $css = ".$className {";
-        $css .= " background-image: url('" . $this->imageURL($path, $baseWidth) . "');";
+        $css .= " background-image: url('" . $imageVector->url($baseWidth) . "');";
         foreach ($properties as $propertyName => $propertyValue)
             $css .= " background-$propertyName: $propertyValue;";
         $css .= " }\n";
@@ -171,7 +173,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
                 $mediaQueryList = $conditionalSizeList->mediaQueryList($imageSourceWidth);
 
                 if ($isSmallestImageSource || $mediaQueryList->containsElements()) {
-                    $imageUrl = $this->imageURL($path, $imageSourceWidth);
+                    $imageUrl = $imageVector->url($imageSourceWidth);
                     if ($isSmallestImageSource) {
                         // The smallest image acts as a fallback. It gets a media condition which is always true.
                         $mediaQueryListCss = "(min-width: 0px)";
@@ -194,65 +196,105 @@ class ResponsiveImagesExtension extends \Twig_Extension
 
         return "$className";
     }
-
-    /**
-     * Returns the width designations from files matching $pathPattern in the numerical order requested.
-     *
-     * @param string $pathPattern : image path pattern containing a single '*' as a placeholder for width designations
-     * @param boolean $sortAscending : true if images should be sorted in ascending size order (otherwise descending)
-     * @return string[]
-     */
-    private function widthsFromImagePathPattern(string $pathPattern, bool $sortAscending): array
-    {
-        $locator = $this->grav['locator'];
-
-        if (preg_match('/^([a-zA-Z]+:\/\/)(.+)$/', $pathPattern, $pathPatternParts) === 1)
-            $pathPattern = $locator->findResource($pathPatternParts[1]) . '/' . $pathPatternParts[2];
-        else
-            $pathPattern = $locator->getBase() . '/user/pages/' . $pathPattern;
-
-        $pathWidthPattern = '/^' . str_replace('*', '([[:digit:]]+)', preg_replace('/[^*]/', '.', $pathPattern)) . '$/';
-
-        $result = [];
-
-        foreach (glob($pathPattern) as $path) {
-            // Extract the image width from the last sequence of digits found in path
-            if (preg_match($pathWidthPattern, $path, $matches) === 1 && count($matches) === 2)
-                $result[] = $matches[1];
-        }
-
-        if (!empty($result)) {
-            if ($sortAscending)
-                sort($result, SORT_NUMERIC);
-            else
-                rsort($result, SORT_NUMERIC);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Returns the image URL from $pathPattern with '*' replaced by $width, if not null.
-     *
-     * @param string $pathPattern image path pattern containing a single '*' as a placeholder for width designations
-     * @param string $width width designation
-     * @return string
-     */
-    private function imageURL(string $pathPattern, string $width): string
-    {
-        if ($width === null)
-            $path = $pathPattern;
-        else
-            $path = str_replace('*', $width, $pathPattern);
-
-        return $this->grav['twig']->processString("{{ url(\"$path\") }}");
-    }
 }
 
 
 namespace Grav\Plugin\ResponsiveImagesExtension;
 
-use Grav\Plugin\ResponsiveImagesExtension;
+use Grav\Common\Grav;
+
+
+
+/**
+ * ImageVector is a specification matching a list of images.
+ */
+class ImageVector
+{
+    /** @var Grav */
+    private $grav;
+
+    /** @var string */
+    private $pathPattern;
+    /** @var string */
+    private $filePathPattern;
+
+    /** @var boolean : true if the image's path is relative to the site's root directory */
+    private $isRelative;
+
+    /**
+     * ImageVector constructor.
+     * @param string $pathPattern : image path pattern containing a single '*' as a placeholder for width designations
+     */
+    public function __construct(string $pathPattern)
+    {
+        $this->grav = Grav::instance();
+
+        $this->pathPattern = $pathPattern;
+        $this->isRelative = false;
+
+        if (preg_match('/^([a-zA-Z]+:\/\/)(.+)$/', $pathPattern, $pathPatternParts) === 1) {
+            // a PHP stream
+            $this->filePathPattern = $this->grav['locator']->findResource($pathPatternParts[1]) . '/' . $pathPatternParts[2];
+        }
+        elseif (substr($pathPattern, 0, 1) === "/") {
+            // an absolute link
+            $this->filePathPattern = $this->grav['locator']->findResource("page://") . $pathPattern;
+        }
+        else {
+            // a relative link
+            $this->filePathPattern = $this->grav['page']->path() . '/' . $pathPattern;
+            $this->isRelative = true;
+        }
+    }
+
+    /**
+     * Returns the width designations from matching image files in the numerical order requested.
+     *
+     * @param boolean $sortAscending : true if images should be sorted in ascending size order (otherwise descending)
+     * @return string[]
+     */
+    public function widths(bool $sortAscending): array
+    {
+        $pathWidthPattern = '/^' . str_replace('*', '([[:digit:]]+)', preg_replace('/[^*]/', '.', $this->filePathPattern)) . '$/';
+
+        $result = [];
+
+        foreach (glob($this->filePathPattern) as $path) {
+            // Extract the image width from the last sequence of digits found in path
+            if (preg_match($pathWidthPattern, $path, $matches) === 1 && count($matches) === 2)
+                $result[] = $matches[1];
+        }
+
+        if (empty($result))
+            throw new \InvalidArgumentException("Could not find images matching path pattern '$this->filePathPattern'");
+
+        if ($sortAscending)
+            sort($result, SORT_NUMERIC);
+        else
+            rsort($result, SORT_NUMERIC);
+
+        return $result;
+    }
+
+    /**
+     * Returns a single image's URL (for $width, if given).
+     *
+     * @param string|null $width width designation
+     * @return string
+     */
+    public function url(string $width): string
+    {
+        if ($width === null)
+            $path = $this->pathPattern;
+        else
+            $path = str_replace('*', $width, $this->pathPattern);
+
+        if ($this->isRelative)
+            $path = $this->grav['page']->rawRoute() . '/' . $path;
+
+        return $this->grav['twig']->processString("{{ url(\"$path\") }}");
+    }
+}
 
 
 /**
@@ -271,7 +313,7 @@ class ConditionalSizeList
     /**
      * @param string|null $configuration
      */
-    public function __construct($configuration)
+    public function __construct(?string $configuration)
     {
         if ($configuration !== null) {
             $this->elements = [];
@@ -362,7 +404,7 @@ class ConditionalSize
             if ($imageDensity >= 1)
                 $results[] = new MediaQuery($imageDensity, $this->minViewportWidthPxCondition, $this);
         } else {  // target slot width relative to the viewport width
-            foreach (ResponsiveImagesExtension::$displayPixelDensities as $displayPixelDensity) {
+            foreach (\Grav\Plugin\ResponsiveImagesExtension::$displayPixelDensities as $displayPixelDensity) {
                 $imageWidthPx = $imageSourceWidth / $displayPixelDensity;
                 $viewportWidth = floor($imageWidthPx / $this->targetSlotWidthFactor);
                 if ($viewportWidth >= $this->minViewportWidthPxCondition)
@@ -481,7 +523,7 @@ class MediaQuery
         $css = "(-webkit-min-device-pixel-ratio: $this->displayPixelDensity) and $minWidthCondition,";
         $css .= " (min-resolution: ${displayResolutionDPI}dpi) and $minWidthCondition";
 
-        if (ResponsiveImagesExtension::$debug)
+        if (\Grav\Plugin\ResponsiveImagesExtension::$debug)
             $css .=  $this->originsComment();
 
         return $css;
