@@ -48,7 +48,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
     public function getFunctions(): array
     {
         return [
-            new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['is_variadic' => true]),
+            new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['is_variadic' => true, 'is_safe' => ['html']]),
             new \Twig_SimpleFunction('background_image_class', [$this, 'backgroundImageClass'], ['is_variadic' => true])
         ];
     }
