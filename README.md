@@ -151,6 +151,19 @@ To display a responsive background image, firstly use a method from one of the f
     body_classes: title-center title-h1h2 {{ background_image_class('images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}
     ```
 
+* Use a background image in the page's content:
+    ```
+    <div class="{{ background_image_class('images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}">
+    [...]
+    </div>
+    ```
+    joined by the following setting in the page's frontmatter:
+    ```yaml
+    never_cache_twig: true
+    ```
+
+  > **NOTE**: To use the `background_image_class()` function inside a page's content, Twig caching must be disabled for that page, otherwise the background image will disappear once the page content is cached.
+
 Secondly, provide a corresponding set of image files for different viewport widths:
 
 ```
