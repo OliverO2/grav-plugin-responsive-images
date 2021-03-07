@@ -1,4 +1,6 @@
-<?php /** @noinspection PhpFullyQualifiedNameUsageInspection */
+<?php /** @noinspection PhpIllegalPsrClassPathInspection */
+/** @noinspection PhpMultipleClassesDeclarationsInOneFile */
+/** @noinspection PhpFullyQualifiedNameUsageInspection */
 
 /**
  * @package Grav\Plugin
@@ -19,12 +21,12 @@ use Grav\Common\Grav;
 class ResponsiveImagesExtension extends \Twig_Extension
 {
     /** @var bool controls whether debug comments should appear in generated CSS code */
-    public static $debug;
+    public static bool $debug;
     /** @var int display pixel density factors relative to 1px (must be in ascending order) */
     public static $displayPixelDensities = [1, 1.5, 2, 3, 4];
 
     /** @var Grav */
-    protected $grav;
+    protected Grav $grav;
     /** @var bool */
     private $backgroundImageCount = 0;  // count of generated background images
     /** @var float[] */
@@ -48,22 +50,23 @@ class ResponsiveImagesExtension extends \Twig_Extension
     public function getFunctions(): array
     {
         return [
-            new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['is_variadic' => true, 'is_safe' => ['html']]),
-            new \Twig_SimpleFunction('background_image_class', [$this, 'backgroundImageClass'], ['is_variadic' => true])
+            new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['needs_context' => true, 'is_variadic' => true, 'is_safe' => ['html']]),
+            new \Twig_SimpleFunction('background_image_class', [$this, 'backgroundImageClass'], ['needs_context' => true, 'is_variadic' => true])
         ];
     }
 
     /**
      * Returns an HTML &lt;img> element with a srcset attribute auto-generated from available image sources.
      *
+     * @param array $context
      * @param string $path image path or pattern
      * @param string|null $baseWidth width used for 'src' attribute
      * @param array $attributes img element attributes
      * @return string
      */
-    public function imageElement(string $path, string $baseWidth = null, array $attributes = []): string
+    public function imageElement(array $context, string $path, ?string $baseWidth = null, array $attributes = []): string
     {
-        $imageVector = new ResponsiveImagesExtension\ImageVector($path);
+        $imageVector = new ResponsiveImagesExtension\ImageVector($context["page"], $path);
         $descendingImageWidths = $imageVector->widths($sortAscending = false);
 
         $widthCount = count($descendingImageWidths);
@@ -109,6 +112,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
      *
      * May be invoked with the parameters described below, or with an associative array containing named parameters.
      *
+     * @param array $context
      * @param string|array $path image path or pattern
      * @param string|null $baseWidth default width
      * @param string|null $sizes srcset/sizes-like attribute ('min-width' media queries, 'px' and 'vw' slot widths only)
@@ -116,7 +120,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
      * @return string
      */
     public function backgroundImageClass(
-        $path, string $baseWidth = null, string $sizes = null, array $properties = []
+        array $context, $path, ?string $baseWidth = null, ?string $sizes = null, array $properties = []
     ): string
     {
         if (is_array($path)) {
@@ -140,7 +144,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
                 throw new \InvalidArgumentException("Required parameter 'path' is missing");
         }
 
-        $imageVector = new ResponsiveImagesExtension\ImageVector($path);
+        $imageVector = new ResponsiveImagesExtension\ImageVector($context["page"], $path);
         $ascendingImageSourceWidths = $imageVector->widths($sortAscending = true);
         $imageSourceCount = count($ascendingImageSourceWidths);
 
@@ -202,7 +206,8 @@ class ResponsiveImagesExtension extends \Twig_Extension
 namespace Grav\Plugin\ResponsiveImagesExtension;
 
 use Grav\Common\Grav;
-
+use Grav\Common\Page\Page;
+use Grav\Common\Utils;
 
 
 /**
@@ -211,25 +216,35 @@ use Grav\Common\Grav;
 class ImageVector
 {
     /** @var Grav */
-    private $grav;
+    private Grav $grav;
 
     /** @var string */
-    private $pathPattern;
+    private string $pathPattern;
     /** @var string */
-    private $filePathPattern;
+    private string $filePathPattern;
 
-    /** @var boolean : true if the image's path is relative to the site's root directory */
-    private $isRelative;
+    /** @var bool : true if the image's path is "absolute" (relative to the site's page directory) */
+    private bool $isAbsolute;
+    /** @var bool : true if the image's path is relative to the current page (or module) directory */
+    private bool $isRelative;
+
+    /** @var Page */
+    private Page $page;
+
 
     /**
      * ImageVector constructor.
+     * @param Page $page : the page using the image. Note that this can be a modular page, where
+     *      Grav::instance()["page"] would return the wrong object.
      * @param string $pathPattern : image path pattern containing a single '*' as a placeholder for width designations
      */
-    public function __construct(string $pathPattern)
+    public function __construct(Page $page, string $pathPattern)
     {
         $this->grav = Grav::instance();
+        $this->page = $page;
 
         $this->pathPattern = $pathPattern;
+        $this->isAbsolute = false;
         $this->isRelative = false;
 
         if (preg_match('/^([a-zA-Z]+:\/\/)(.+)$/', $pathPattern, $pathPatternParts) === 1) {
@@ -239,10 +254,11 @@ class ImageVector
         elseif (substr($pathPattern, 0, 1) === "/") {
             // an absolute link
             $this->filePathPattern = $this->grav['locator']->findResource("page://") . $pathPattern;
+            $this->isAbsolute = true;
         }
         else {
             // a relative link
-            $this->filePathPattern = $this->grav['page']->path() . '/' . $pathPattern;
+            $this->filePathPattern = $page->media()->getPath() . '/' . $pathPattern;
             $this->isRelative = true;
         }
     }
@@ -250,7 +266,7 @@ class ImageVector
     /**
      * Returns the width designations from matching image files in the numerical order requested.
      *
-     * @param boolean $sortAscending : true if images should be sorted in ascending size order (otherwise descending)
+     * @param bool $sortAscending : true if images should be sorted in ascending size order (otherwise descending)
      * @return string[]
      */
     public function widths(bool $sortAscending): array
@@ -282,17 +298,21 @@ class ImageVector
      * @param string|null $width width designation
      * @return string
      */
-    public function url(string $width): string
+    public function url(?string $width): string
     {
         if ($width === null)
             $path = $this->pathPattern;
         else
             $path = str_replace('*', $width, $this->pathPattern);
 
-        if ($this->isRelative)
-            $path = $this->grav['page']->rawRoute() . '/' . $path;
+        if ($this->isAbsolute) {
+            return Utils::url("page://") . $path;
+        } else {
+            if ($this->isRelative)
+                $path = $this->page->rawRoute() . '/' . $path;
 
-        return $this->grav['twig']->processString("{{ url(\"$path\") }}");
+            return Utils::url($path);
+        }
     }
 }
 
@@ -308,7 +328,7 @@ class ImageVector
 class ConditionalSizeList
 {
     /** @var ConditionalSize[] */
-    public $elements;
+    public array $elements;
 
     /**
      * @param string|null $configuration
@@ -359,15 +379,15 @@ class ConditionalSizeList
 class ConditionalSize
 {
     /** @var int the minimum viewport width condition in px, or 0 (which equals unconditional) */
-    private $minViewportWidthPxCondition;
+    private int $minViewportWidthPxCondition;
 
     /** @var int|null an absolute slot width in px, or null */
-    private $targetSlotWidthPx = null;
+    private ?int $targetSlotWidthPx = null;
     /** @var float|null a relative slot width expressed as a factor of the viewport width, or null */
-    private $targetSlotWidthFactor = null;
+    private ?float $targetSlotWidthFactor = null;
 
     /** @var string the conditional size's original configuration (for debug output only) */
-    public $configuration;
+    public string $configuration;
 
     public function __construct(string $configuration)
     {
@@ -425,9 +445,9 @@ class ConditionalSize
 class MediaQueryList
 {
     /** @var MediaQuery[] */
-    private $_elements = [];
+    private array $_elements = [];
     /** @var MediaQuery[] */
-    private $elementsByDensity = [];
+    private array $elementsByDensity = [];
 
     /**
      * Adds media queries for a conditional size and image size, filtering out those candidates, which
@@ -480,11 +500,11 @@ class MediaQueryList
 class MediaQuery
 {
     /** @var float */
-    private $displayPixelDensity;
+    private float $displayPixelDensity;
     /** @var int */
-    private $minWidthPx;
+    private int $minWidthPx;
     /** @var ConditionalSize[] origins of this media query, the first one of which is the actual generator */
-    private $origins;
+    private array $origins;
 
     public function __construct(float $displayPixelDensity, int $minWidthPx, ConditionalSize $origin)
     {

@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection PhpIllegalPsrClassPathInspection */
 
 namespace Grav\Plugin;
 
@@ -15,7 +15,7 @@ class ResponsiveImagesPlugin extends Plugin
      * Returns a list of events and associated subscribers.
      * @return array
      */
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
             'onTwigExtensions' => ['onTwigExtensions', 0],
