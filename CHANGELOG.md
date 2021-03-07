@@ -1,3 +1,11 @@
+# v3.0.1
+## 07-03-2021
+
+1. [](#bugfix)
+    * Fixed page-relative links for modular pages.
+1. [](#improved)
+    * Upgraded to PHP 7.4.
+
 # v3.0.0
 ## 01-03-2021
 
