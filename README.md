@@ -150,8 +150,10 @@ The [`sizes`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#attr
 
 > :information_source: Background images have no `srcset` support in CSS. This plugin works around this limitation by generating CSS media queries for different viewport sizes and display pixel densities. For an in-depth explanation why other methods are not helpful, see [this article on ericportis.com](https://ericportis.com/posts/2014/srcset-sizes/).
 
-The Twig function `background_image_class()` returns the name of a generated CSS class, which specifies a responsive background image. The returned class name must appear as part of a `class` list of some HTML element (such as `<body>` or `<div>`).
- 
+The Twig function `background_image_class()` returns the name of a generated CSS class, which specifies a responsive background image. The returned class name must appear as part of a `class` list of the HTML element containing the background (such as `<body>` or `<div>`).
+
+> :information_source: For responsive images to work on modular pages, Twig caching must be disabled due to [Grav issue #1934](https://github.com/getgrav/grav/issues/1934). Please set `pages: { never_cache_twig: true }` in your `system.yaml` or set `never_cache_twig: true` in each modular page's frontmatter. Otherwise images will disappear on the second page load.
+
 To display a responsive background image, firstly use a method from one of the following alternatives.
 
 * Completely specify the image in a Twig template:
@@ -179,7 +181,7 @@ To display a responsive background image, firstly use a method from one of the f
 
 * Use a Twig function in a page's frontmatter:
 
-    > :information_source: To use Twig in the page frontmatter, remember to [enable Twig processing](https://learn.getgrav.org/content/headers#process) and set `pages: { frontmatter: { process_twig: true } }` in your `system.yaml`.
+    > :information_source: To use Twig in a page's frontmatter, [enable Twig processing](https://learn.getgrav.org/content/headers#process) and set `pages: { frontmatter: { process_twig: true } }` in your `system.yaml`.
 
     ```
     body_classes: title-center title-h1h2 {{ background_image_class('images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}
@@ -191,14 +193,8 @@ To display a responsive background image, firstly use a method from one of the f
     [...]
     </div>
     ```
-    joined by the following setting in the page's frontmatter:
-    ```yaml
-    never_cache_twig: true
-    ```
 
-  > :information_source: Twig caching must be disabled for such pages, otherwise the background image will disappear once the page content is cached.
-
-  > :information_source: Also remember to [enable Twig processing](https://learn.getgrav.org/content/headers#process).
+  > :information_source: Remember to [enable Twig processing](https://learn.getgrav.org/content/headers#process).
 
 Secondly, provide a corresponding set of image files for different viewport widths:
 
