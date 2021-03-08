@@ -1,3 +1,9 @@
+# v3.0.2
+## 08-03-2021
+
+1. [](#improved)
+    * Documented Twig caching problems on modular pages (Grav issue #1934).
+
 # v3.0.1
 ## 07-03-2021
 
