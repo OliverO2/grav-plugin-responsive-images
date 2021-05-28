@@ -21,12 +21,12 @@ use Grav\Common\Grav;
 class ResponsiveImagesExtension extends \Twig_Extension
 {
     /** @var bool controls whether debug comments should appear in generated CSS code */
-    public static bool $debug;
+    public static $debug;
     /** @var int display pixel density factors relative to 1px (must be in ascending order) */
     public static $displayPixelDensities = [1, 1.5, 2, 3, 4];
 
     /** @var Grav */
-    protected Grav $grav;
+    protected $grav;
     /** @var bool */
     private $backgroundImageCount = 0;  // count of generated background images
     /** @var float[] */
@@ -216,20 +216,20 @@ use Grav\Common\Utils;
 class ImageVector
 {
     /** @var Grav */
-    private Grav $grav;
+    private $grav;
 
     /** @var string */
-    private string $pathPattern;
+    private $pathPattern;
     /** @var string */
-    private string $filePathPattern;
+    private $filePathPattern;
 
     /** @var bool : true if the image's path is "absolute" (relative to the site's page directory) */
-    private bool $isAbsolute;
+    private $isAbsolute;
     /** @var bool : true if the image's path is relative to the current page (or module) directory */
-    private bool $isRelative;
+    private $isRelative;
 
     /** @var Page */
-    private Page $page;
+    private $page;
 
 
     /**
@@ -328,7 +328,7 @@ class ImageVector
 class ConditionalSizeList
 {
     /** @var ConditionalSize[] */
-    public array $elements;
+    public $elements;
 
     /**
      * @param string|null $configuration
@@ -379,15 +379,15 @@ class ConditionalSizeList
 class ConditionalSize
 {
     /** @var int the minimum viewport width condition in px, or 0 (which equals unconditional) */
-    private int $minViewportWidthPxCondition;
+    private $minViewportWidthPxCondition;
 
     /** @var int|null an absolute slot width in px, or null */
-    private ?int $targetSlotWidthPx = null;
+    private $targetSlotWidthPx = null;
     /** @var float|null a relative slot width expressed as a factor of the viewport width, or null */
-    private ?float $targetSlotWidthFactor = null;
+    private $targetSlotWidthFactor = null;
 
     /** @var string the conditional size's original configuration (for debug output only) */
-    public string $configuration;
+    public $configuration;
 
     public function __construct(string $configuration)
     {
@@ -500,11 +500,11 @@ class MediaQueryList
 class MediaQuery
 {
     /** @var float */
-    private float $displayPixelDensity;
+    private $displayPixelDensity;
     /** @var int */
-    private int $minWidthPx;
+    private $minWidthPx;
     /** @var ConditionalSize[] origins of this media query, the first one of which is the actual generator */
-    private array $origins;
+    private $origins;
 
     public function __construct(float $displayPixelDensity, int $minWidthPx, ConditionalSize $origin)
     {
