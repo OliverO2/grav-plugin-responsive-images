@@ -66,6 +66,12 @@
       <textMaps />
     </LinkMapSettings>
   </component>
+  <component name="PhpEntryPointsManager">
+    <entry_point>
+      <entry_point TYPE="phpMethod" FQNAME="\Grav\Plugin\ResponsiveImagesPlugin onTwigExtensions" />
+    </entry_point>
+    <pattern value="\Grav\Plugin\ResponsiveImagesPlugin" member="onTwigExtensions" />
+  </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_1_6" project-jdk-name="OpenJDK 11" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/out" />
   </component>

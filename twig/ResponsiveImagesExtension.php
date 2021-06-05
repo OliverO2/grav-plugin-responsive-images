@@ -67,7 +67,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
     public function imageElement(array $context, string $path, ?string $baseWidth = null, array $attributes = []): string
     {
         $imageVector = new ResponsiveImagesExtension\ImageVector($context["page"], $path);
-        $descendingImageWidths = $imageVector->widths($sortAscending = false);
+        $descendingImageWidths = $imageVector->widths(false);
 
         $widthCount = count($descendingImageWidths);
 
@@ -145,7 +145,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
         }
 
         $imageVector = new ResponsiveImagesExtension\ImageVector($context["page"], $path);
-        $ascendingImageSourceWidths = $imageVector->widths($sortAscending = true);
+        $ascendingImageSourceWidths = $imageVector->widths(true);
         $imageSourceCount = count($ascendingImageSourceWidths);
 
         if ($imageSourceCount > 0 && $baseWidth === null) {
@@ -445,9 +445,9 @@ class ConditionalSize
 class MediaQueryList
 {
     /** @var MediaQuery[] */
-    private array $_elements = [];
+    private $_elements = [];
     /** @var MediaQuery[] */
-    private array $elementsByDensity = [];
+    private $elementsByDensity = [];
 
     /**
      * Adds media queries for a conditional size and image size, filtering out those candidates, which
