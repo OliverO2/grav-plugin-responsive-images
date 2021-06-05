@@ -1,3 +1,9 @@
+# v3.0.3
+## 05-06-2021
+
+1. [](#improved)
+    * Relax required PHP version to >=7.3.
+
 # v3.0.2
 ## 08-03-2021
 
