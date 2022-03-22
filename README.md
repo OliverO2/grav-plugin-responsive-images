@@ -158,7 +158,7 @@ To display a responsive background image, firstly use a method from one of the f
 
 * Completely specify the image in a Twig template:
     ```
-    <div class="{{ background_image_class('images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}">
+    <div class="{{ background_image_class('/images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}">
     [...]
     </div>
     ```
@@ -172,7 +172,7 @@ To display a responsive background image, firstly use a method from one of the f
     joined by corresponding parameters in the page's frontmatter:
     ```yaml
     background_image:
-        path: "images/stars-*.jpg"
+        path: "/images/stars-*.jpg"
         sizes: "(min-width: 1200px) 1200px, 100vw" 
         position: top
         size: cover
@@ -184,12 +184,12 @@ To display a responsive background image, firstly use a method from one of the f
     > :information_source: To use Twig in a page's frontmatter, [enable Twig processing](https://learn.getgrav.org/content/headers#process) and set `pages: { frontmatter: { process_twig: true } }` in your `system.yaml`.
 
     ```
-    body_classes: title-center title-h1h2 {{ background_image_class('images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}
+    body_classes: title-center title-h1h2 {{ background_image_class('/images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}
     ```
 
 * Use a background image in the page's content:
     ```
-    <div class="{{ background_image_class('images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}">
+    <div class="{{ background_image_class('/images/stars-*.jpg', sizes='(min-width: 1200px) 1200px, 100vw', position='top', size='cover', attachment='fixed') }}">
     [...]
     </div>
     ```
@@ -199,10 +199,10 @@ To display a responsive background image, firstly use a method from one of the f
 Secondly, provide a corresponding set of image files for different viewport widths:
 
 ```
-images/stars-0600.jpg
-images/stars-0800.jpg
-images/stars-1200.jpg
-images/stars-2400.jpg
+/images/stars-0600.jpg
+/images/stars-0800.jpg
+/images/stars-1200.jpg
+/images/stars-2400.jpg
 ```
 
 > :information_source: The numbers must reflect the image's intrinsic width in pixels. This is the image's real width, _not CSS pixels_.
@@ -225,35 +225,35 @@ For each of the above examples, `background_image_class()` will generate the fol
 
 ```html
 <style>
-.ri-background-image-1 { background-image: url('/images/stars-1200.jpg'); background-position: top; background-size: cover; background-attachment: fixed; }
+.ri-background-image-1 { background-image: url('/user/pages/images/stars-1200.jpg'); background-position: top; background-size: cover; background-attachment: fixed; }
 /* sizes='(min-width: 1200px) 1200px, 100vw' */
 @media
- (min-width: 0px) /* fallback */ {
- .ri-background-image-1 { background-image: url('/images/stars-0600.jpg'); }
+(min-width: 0px) /* fallback */ {
+    .ri-background-image-1 { background-image: url('/user/pages/images/stars-0600.jpg'); }
 }
 @media
- (-webkit-min-device-pixel-ratio: 1) and (min-width: 800px), (min-resolution: 96dpi) and (min-width: 800px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 1.5) and (min-width: 533px), (min-resolution: 144dpi) and (min-width: 533px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 2) and (min-width: 400px), (min-resolution: 192dpi) and (min-width: 400px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 3) and (min-width: 266px), (min-resolution: 288dpi) and (min-width: 266px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 4) and (min-width: 200px), (min-resolution: 384dpi) and (min-width: 200px) /* 100vw */ {
- .ri-background-image-1 { background-image: url('/images/stars-0800.jpg'); }
+(-webkit-min-device-pixel-ratio: 1) and (min-width: 601px), (min-resolution: 96dpi) and (min-width: 601px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 1.5) and (min-width: 401px), (min-resolution: 144dpi) and (min-width: 401px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 2) and (min-width: 301px), (min-resolution: 192dpi) and (min-width: 301px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 3) and (min-width: 201px), (min-resolution: 288dpi) and (min-width: 201px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 4) and (min-width: 151px), (min-resolution: 384dpi) and (min-width: 151px) /* 100vw */ {
+    .ri-background-image-1 { background-image: url('/user/pages/images/stars-0800.jpg'); }
 }
 @media
- (-webkit-min-device-pixel-ratio: 1.5) and (min-width: 800px), (min-resolution: 144dpi) and (min-width: 800px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 2) and (min-width: 600px), (min-resolution: 192dpi) and (min-width: 600px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 3) and (min-width: 400px), (min-resolution: 288dpi) and (min-width: 400px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 4) and (min-width: 300px), (min-resolution: 384dpi) and (min-width: 300px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 1) and (min-width: 1200px), (min-resolution: 96dpi) and (min-width: 1200px) /* (min-width: 1200px) 1200px, 100vw */ {
- .ri-background-image-1 { background-image: url('/images/stars-1200.jpg'); }
+(-webkit-min-device-pixel-ratio: 1) and (min-width: 801px), (min-resolution: 96dpi) and (min-width: 801px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 1.5) and (min-width: 534px), (min-resolution: 144dpi) and (min-width: 534px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 2) and (min-width: 401px), (min-resolution: 192dpi) and (min-width: 401px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 3) and (min-width: 267px), (min-resolution: 288dpi) and (min-width: 267px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 4) and (min-width: 201px), (min-resolution: 384dpi) and (min-width: 201px) /* 100vw */ {
+    .ri-background-image-1 { background-image: url('/user/pages/images/stars-1200.jpg'); }
 }
 @media
- (-webkit-min-device-pixel-ratio: 1) and (min-width: 2400px), (min-resolution: 96dpi) and (min-width: 2400px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 1.5) and (min-width: 1600px), (min-resolution: 144dpi) and (min-width: 1600px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 3) and (min-width: 800px), (min-resolution: 288dpi) and (min-width: 800px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 4) and (min-width: 600px), (min-resolution: 384dpi) and (min-width: 600px) /* 100vw */,
- (-webkit-min-device-pixel-ratio: 2) and (min-width: 1200px), (min-resolution: 192dpi) and (min-width: 1200px) /* (min-width: 1200px) 1200px, 100vw */ {
- .ri-background-image-1 { background-image: url('/images/stars-2400.jpg'); }
+(-webkit-min-device-pixel-ratio: 1.5) and (min-width: 801px), (min-resolution: 144dpi) and (min-width: 801px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 2) and (min-width: 601px), (min-resolution: 192dpi) and (min-width: 601px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 3) and (min-width: 401px), (min-resolution: 288dpi) and (min-width: 401px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 4) and (min-width: 301px), (min-resolution: 384dpi) and (min-width: 301px) /* 100vw */,
+(-webkit-min-device-pixel-ratio: 1) and (min-width: 1201px), (min-resolution: 96dpi) and (min-width: 1201px) /* (min-width: 1200px) 1200px, 100vw */ {
+    .ri-background-image-1 { background-image: url('/user/pages/images/stars-2400.jpg'); }
 }
 </style>
 ```
@@ -290,6 +290,8 @@ Parameters:
 * **`<sizes>`** is a `srcset/sizes`-like attribute with a set of media conditions and slot width hints. It indicates the intended image size for different viewport widths. For details, see the [MDN documentation on srcset with sizes](https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images#Resolution_switching_Different_sizes). The parameter is optional and defaults to `100vw`.
 
     > :information_source: The `sizes` parameter is a restricted variant of the [HTML `<img>` tag's `sizes` attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#attr-sizes): It supports only `min-width` media conditions with a `px` unit, and only slot widths with `px` and `vw` units.
+
+    > :information_source: Complex expressions for `sizes` cannot always be expressed optimally, as one CSS media query per image file must cover all parts of a `sizes` expression. In certain cases, the browser will choose an image larger than necessary, prioritizing quality over image size.
 
     Example: `sizes='(min-width: 1200px) 1200px, 100vw'` would provide
 

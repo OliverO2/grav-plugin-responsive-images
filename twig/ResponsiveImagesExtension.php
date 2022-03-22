@@ -172,19 +172,24 @@ class ResponsiveImagesExtension extends \Twig_Extension
             // With media queries, like everywhere else in CSS, the last matching rule wins. Code for images sources
             // is generated in ascending width order, so that the largest matching image wins.
             $isSmallestImageSource = true;
-            foreach ($ascendingImageSourceWidths as $imageSourceWidth) {
-                $mediaQueryList = $conditionalSizeList->mediaQueryList($imageSourceWidth);
+            for ($imageSourceIndex = 0; $imageSourceIndex < $imageSourceCount; $imageSourceIndex++) {
+                $imageSourceWidth = $ascendingImageSourceWidths[$imageSourceIndex];
+                $mediaQueryListCss = "";
 
-                if ($isSmallestImageSource || $mediaQueryList->containsElements()) {
-                    $imageUrl = $imageVector->url($imageSourceWidth);
-                    if ($isSmallestImageSource) {
-                        // The smallest image acts as a fallback. It gets a media condition which is always true.
-                        $mediaQueryListCss = "(min-width: 0px)";
-                        if (ResponsiveImagesExtension::$debug)
-                            $mediaQueryListCss .= " /* fallback */";
-                    } else
+                if ($isSmallestImageSource) {
+                    // The smallest image acts as a fallback. It gets a media condition which is always true.
+                    $mediaQueryListCss = "(min-width: 0px)";
+                    if (ResponsiveImagesExtension::$debug)
+                        $mediaQueryListCss .= " /* fallback */";
+                } else {
+                    $previousImageSourceWidth = $ascendingImageSourceWidths[$imageSourceIndex - 1];
+                    $mediaQueryList = $conditionalSizeList->mediaQueryList($previousImageSourceWidth);
+                    if ($mediaQueryList->containsElements())
                         $mediaQueryListCss = $mediaQueryList->css();
+                }
 
+                if ($mediaQueryListCss) {
+                    $imageUrl = $imageVector->url($imageSourceWidth);
                     $css .= "@media\n";
                     $css .= " $mediaQueryListCss {\n";
                     $css .= " .$className { background-image: url('" . $imageUrl . "'); }\n";
@@ -343,16 +348,16 @@ class ConditionalSizeList
     /**
      * Returns media queries for an image according to this list's conditions and sizes.
      *
-     * @param string $imageSourceWidth
+     * @param string $imageSourceWidthToExceed
      * @return MediaQueryList
      */
-    public function mediaQueryList(string $imageSourceWidth): MediaQueryList
+    public function mediaQueryList(int $imageSourceWidthToExceed): MediaQueryList
     {
         $result = new MediaQueryList();
 
         // Add media queries for matching conditions and sizes.
         foreach ($this->elements as $conditionalSize)
-            $result->addCandidates($conditionalSize, $imageSourceWidth);
+            $result->addCandidates($conditionalSize, $imageSourceWidthToExceed);
 
         return $result;
     }
@@ -408,24 +413,24 @@ class ConditionalSize
     /**
      * Returns media queries matching this condition, according to target slot size and image size.
      *
-     * @param int $imageSourceWidth
+     * @param int $imageSourceWidthToExceed
      * @return MediaQuery[]
      */
-    public function mediaQueries(int $imageSourceWidth): array
+    public function mediaQueries(int $imageSourceWidthToExceed): array
     {
         /** @var MediaQuery[] $results */
         $results = [];
 
         if ($this->targetSlotWidthPx !== null) {  // absolute target slot width
-            $imageDensity = floor(($imageSourceWidth / $this->targetSlotWidthPx) * 100) / 100;
+            $imageDensity = floor(($imageSourceWidthToExceed / $this->targetSlotWidthPx) * 100) / 100;
             if ($imageDensity >= 1)
                 $results[] = new MediaQuery($imageDensity, $this->minViewportWidthPxCondition, $this);
         } else {  // target slot width relative to the viewport width
             foreach (\Grav\Plugin\ResponsiveImagesExtension::$displayPixelDensities as $displayPixelDensity) {
-                $imageWidthPx = $imageSourceWidth / $displayPixelDensity;
-                $viewportWidth = floor($imageWidthPx / $this->targetSlotWidthFactor);
-                if ($viewportWidth >= $this->minViewportWidthPxCondition)
-                    $results[] = new MediaQuery($displayPixelDensity, $viewportWidth, $this);
+                $imageWidthPx = $imageSourceWidthToExceed / $displayPixelDensity;
+                $viewportWidthToExceed = floor($imageWidthPx / $this->targetSlotWidthFactor);
+                if ($viewportWidthToExceed >= $this->minViewportWidthPxCondition)
+                    $results[] = new MediaQuery($displayPixelDensity, $viewportWidthToExceed, $this);
             }
         }
 
@@ -451,11 +456,11 @@ class MediaQueryList
      * are matched by other media queries already included.
      *
      * @param ConditionalSize $conditionalSize
-     * @param int $imageSourceWidth
+     * @param int $imageSourceWidthToExceed
      */
-    public function addCandidates(ConditionalSize $conditionalSize, int $imageSourceWidth): void
+    public function addCandidates(ConditionalSize $conditionalSize, int $imageSourceWidthToExceed): void
     {
-        $candidatesToAdd = $conditionalSize->mediaQueries($imageSourceWidth);
+        $candidatesToAdd = $conditionalSize->mediaQueries($imageSourceWidthToExceed);
         $elementsToAdd = [];
 
         foreach ($candidatesToAdd as $candidate) {
@@ -503,10 +508,10 @@ class MediaQuery
     /** @var ConditionalSize[] origins of this media query, the first one of which is the actual generator */
     private $origins;
 
-    public function __construct(float $displayPixelDensity, int $minWidthPx, ConditionalSize $origin)
+    public function __construct(float $displayPixelDensity, int $minWidthPxToExceed, ConditionalSize $origin)
     {
         $this->displayPixelDensity = $displayPixelDensity;
-        $this->minWidthPx = $minWidthPx;
+        $this->minWidthPx = $minWidthPxToExceed + 1;
         $this->origins = [$origin];
     }
 
