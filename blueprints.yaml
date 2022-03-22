@@ -1,6 +1,6 @@
 name: Responsive Images
 type: plugin
-version: 3.0.3
+version: 3.1.0
 description: "The **Responsive Images** plugin makes websites faster by auto-generating `srcset` attributes for foreground images and CSS media queries for background images."
 icon: picture-o
 author:

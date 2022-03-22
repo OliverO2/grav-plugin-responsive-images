@@ -1,3 +1,9 @@
+# v3.1.0
+## 22-03-2022
+
+1. [](#improved)
+    * background_image_class(): Prefer higher image resolution.
+
 # v3.0.3
 ## 05-06-2021
 
