@@ -29,7 +29,6 @@ class ResponsiveImagesExtension extends \Twig_Extension
     protected $grav;
     /** @var bool */
     private $backgroundImageCount = 0;  // count of generated background images
-    /** @var float[] */
 
     public function __construct()
     {
@@ -102,7 +101,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
         }
 
         if ($srcsetAttribute || $sizesAttribute)
-            return "${imageElementStart}$srcsetAttribute${sizesAttribute}$otherAttributes>";
+            return "$imageElementStart$srcsetAttribute$sizesAttribute$otherAttributes>";
         else
             return "$imageElementStart$otherAttributes>";
     }
@@ -250,13 +249,11 @@ class ImageVector
         if (preg_match('/^([a-zA-Z]+:\/\/)(.+)$/', $pathPattern, $pathPatternParts) === 1) {
             // a PHP stream
             $this->filePathPattern = $this->grav['locator']->findResource($pathPatternParts[1]) . '/' . $pathPatternParts[2];
-        }
-        elseif (substr($pathPattern, 0, 1) === "/") {
+        } elseif (substr($pathPattern, 0, 1) === "/") {
             // an absolute link
             $this->filePathPattern = $this->grav['locator']->findResource("page://") . $pathPattern;
             $this->isAbsolute = true;
-        }
-        else {
+        } else {
             // a relative link
             $this->filePathPattern = $page->media()->getPath() . '/' . $pathPattern;
             $this->isRelative = true;
@@ -539,12 +536,13 @@ class MediaQuery
 
         $displayResolutionDPI = $this->displayPixelDensity * 96;
         $minWidthCondition = "(min-width: {$this->minWidthPx}px)";
+        $displayPixelDensity = floatToString($this->displayPixelDensity);
 
-        $css = "(-webkit-min-device-pixel-ratio: $this->displayPixelDensity) and $minWidthCondition,";
+        $css = "(-webkit-min-device-pixel-ratio: $displayPixelDensity) and $minWidthCondition,";
         $css .= " (min-resolution: ${displayResolutionDPI}dpi) and $minWidthCondition";
 
         if (\Grav\Plugin\ResponsiveImagesExtension::$debug)
-            $css .=  $this->originsComment();
+            $css .= $this->originsComment();
 
         return $css;
     }
@@ -557,4 +555,11 @@ class MediaQuery
 
         return " /* " . implode(", ", $originConfigurations) . " */";
     }
+}
+
+
+/** returns a float's locale-independent string value */
+function floatToString(float $value): string
+{
+    return rtrim(rtrim(sprintf("%F", $value), "0"), ".");
 }
