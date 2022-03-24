@@ -53,7 +53,8 @@ class ResponsiveImagesExtension extends \Twig_Extension
     {
         return [
             new \Twig_SimpleFunction('image_element', [$this, 'imageElement'], ['needs_context' => true, 'is_variadic' => true, 'is_safe' => ['html']]),
-            new \Twig_SimpleFunction('background_image_class', [$this, 'backgroundImageClass'], ['needs_context' => true, 'is_variadic' => true])
+            new \Twig_SimpleFunction('background_image_class', [$this, 'backgroundImageClass'], ['needs_context' => true, 'is_variadic' => true]),
+            new \Twig_SimpleFunction('html_image_support_classes', [$this, 'htmlImageSupportClasses'], ['needs_context' => false, 'is_variadic' => false])
         ];
     }
 
@@ -206,6 +207,44 @@ class ResponsiveImagesExtension extends \Twig_Extension
     }
 
     /**
+     * Returns a string containing a blank-separated list of classes indicating browser-supported image formats.
+     *
+     * @return string
+     */
+    public function htmlImageSupportClasses(): string
+    {
+        $userAgent = $_SERVER['HTTP_USER_AGENT'];
+        $result = "";
+
+        $version = $this->browserVersion($userAgent, "Chrome");  // includes Edge, SamsungBrowser, Opera
+        if ($version != null) {
+            if ($version >= 23)
+                $result .= " webp";
+            if ($version >= 85)
+                $result .= " avif";
+            return $result;
+        }
+
+        $version = $this->browserVersion($userAgent, "Safari");
+        if ($version != null) {
+            if (!strpos($userAgent, "Mac OS X 10_"))
+                $result .= " webp";
+            return $result;
+        }
+
+        $version = $this->browserVersion($userAgent, "Firefox");
+        if ($version != null) {
+            if ($version >= 65)
+                $result .= " webp";
+            if ($version >= 93)
+                $result .= " avif";
+            return $result;
+        }
+
+        return "";
+    }
+
+    /**
      * Returns a srcset attribute.
      *
      * @param array $descendingImageWidths
@@ -239,6 +278,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
      * @param ResponsiveImagesExtension\ImageVector $imageVector
      * @param string $imageSourceWidth
      * @param string|null $className
+     * @param array $properties
      * @return string
      */
     private function backgroundImageRules(ResponsiveImagesExtension\ImageVector $imageVector, string $imageSourceWidth, string $className, array $properties = []): string
@@ -262,6 +302,22 @@ class ResponsiveImagesExtension extends \Twig_Extension
         $css .= ".$className { background-image: url('$baseImageUrl');$additionalProperties }\n";
 
         return $css;
+    }
+
+    /**
+     * Returns the browser version from $userAgent if $browserName matches, null otherwise.
+     *
+     * @param string $userAgent
+     * @param string $browserName
+     * @return int|null
+     */
+    private function browserVersion(string $userAgent, string $browserName): ?int
+    {
+        if (strpos($userAgent, "$browserName/") && preg_match(";$browserName/(\\d+);", $userAgent, $matches)) {
+            return intval($matches[1]);
+        } else {
+            return null;
+        }
     }
 }
 
