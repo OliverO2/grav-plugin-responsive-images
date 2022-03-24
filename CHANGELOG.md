@@ -1,3 +1,9 @@
+# v3.3.1
+## 24-03-2022
+
+1. [](#bugfix)
+    * Fix generated <source> elements within <picture>, removing 'src' tag
+
 # v3.3.0
 ## 24-03-2022
 
