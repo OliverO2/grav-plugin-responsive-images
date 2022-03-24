@@ -27,7 +27,8 @@ class ResponsiveImagesPlugin extends Plugin
      */
     public function onTwigExtensions()
     {
+        $alternativeFormats = $this->config->get('plugins.responsive-images.alternativeFormats', []);
         require_once(__DIR__ . '/twig/ResponsiveImagesExtension.php');
-        $this->grav['twig']->twig->addExtension(new ResponsiveImagesExtension());
+        $this->grav['twig']->twig->addExtension(new ResponsiveImagesExtension($alternativeFormats));
     }
 }

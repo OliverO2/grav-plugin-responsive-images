@@ -22,16 +22,19 @@ class ResponsiveImagesExtension extends \Twig_Extension
 {
     /** @var bool controls whether debug comments should appear in generated CSS code */
     public static $debug;
-    /** @var int display pixel density factors relative to 1px (must be in ascending order) */
+    /** @var float[] display pixel density factors relative to 1px (must be in ascending order) */
     public static $displayPixelDensities = [1, 1.5, 2, 3, 4];
 
     /** @var Grav */
     protected $grav;
-    /** @var bool */
+    /** @var int */
     private $backgroundImageCount = 0;  // count of generated background images
+    /** @var string[] */
+    private $alternativeFormats;
 
-    public function __construct()
+    public function __construct(array $alternativeFormats)
     {
+        $this->alternativeFormats = $alternativeFormats;
         $this->grav = Grav::instance();
         ResponsiveImagesExtension::$debug = $this->grav['config']->get('system.images.debug', false);
     }
@@ -73,19 +76,6 @@ class ResponsiveImagesExtension extends \Twig_Extension
         if ($widthCount > 0 && $baseWidth === null)
             $baseWidth = $descendingImageWidths[($widthCount > 1 ? 1 : 0)];  // use second width, if available, else first
 
-        $imageElementStart = '<img src="' . $imageVector->url($baseWidth) . '"';
-
-        if ($widthCount > 1) {
-            // With srcset, the first matching width wins. We specify images in descending width order
-            // to get the largest matching image for best quality.
-            $srcsetElements = [];
-            foreach ($descendingImageWidths as $width)
-                $srcsetElements[] = $imageVector->url($width) . ' ' . intval($width) . 'w';
-
-            $srcsetAttribute = ' srcset="' . implode(', ', $srcsetElements) . '"';
-        } else
-            $srcsetAttribute = '';
-
         $sizesAttribute = '';
         $otherAttributes = '';
 
@@ -100,10 +90,25 @@ class ResponsiveImagesExtension extends \Twig_Extension
             }
         }
 
-        if ($srcsetAttribute || $sizesAttribute)
-            return "$imageElementStart$srcsetAttribute$sizesAttribute$otherAttributes>";
-        else
-            return "$imageElementStart$otherAttributes>";
+        $result = "";
+        $baseImageUrl = $imageVector->url($baseWidth);
+
+        if ($this->alternativeFormats) {
+            $result .= "<picture>\n";
+            foreach ($this->alternativeFormats as $alternativeFormat) {
+                $imageUrl = alternativeFormatUrl($baseImageUrl, $alternativeFormat);
+                $srcsetAttribute = $this->srcsetAttribute($descendingImageWidths, $imageVector, $alternativeFormat);
+                $result .= " <source type=\"image/$alternativeFormat\" src=\"$imageUrl\"$srcsetAttribute$sizesAttribute>\n";
+            }
+        }
+
+        $srcsetAttribute = $this->srcsetAttribute($descendingImageWidths, $imageVector);
+        $result .= " <img src=\"$baseImageUrl\"$srcsetAttribute$sizesAttribute$otherAttributes>\n";
+
+        if ($this->alternativeFormats)
+            $result .= "</picture>\n";
+
+        return $result;
     }
 
     /**
@@ -156,11 +161,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
         $className = "ri-background-image-$this->backgroundImageCount";
 
         // Generate the basic CSS class with generic properties.
-        $css = ".$className {";
-        $css .= " background-image: url('" . $imageVector->url($baseWidth) . "');";
-        foreach ($properties as $propertyName => $propertyValue)
-            $css .= " background-$propertyName: $propertyValue;";
-        $css .= " }\n";
+        $css = $this->backgroundImageRules($imageVector, $baseWidth, $className, $properties);
 
         // Add CSS code for alternative image sources at different sizes.
         if ($imageSourceCount > 1) {
@@ -189,10 +190,9 @@ class ResponsiveImagesExtension extends \Twig_Extension
                 }
 
                 if ($mediaQueryListCss) {
-                    $imageUrl = $imageVector->url($imageSourceWidth);
                     $css .= "@media\n";
                     $css .= " $mediaQueryListCss {\n";
-                    $css .= " .$className { background-image: url('" . $imageUrl . "'); }\n";
+                    $css .= $this->backgroundImageRules($imageVector, $imageSourceWidth, $className);
                     $css .= "}\n";
                 }
 
@@ -204,6 +204,77 @@ class ResponsiveImagesExtension extends \Twig_Extension
 
         return "$className";
     }
+
+    /**
+     * Returns a srcset attribute.
+     *
+     * @param array $descendingImageWidths
+     * @param ResponsiveImagesExtension\ImageVector $imageVector
+     * @param string|null $alternativeFormat
+     * @return string
+     */
+    private function srcsetAttribute(array $descendingImageWidths, ResponsiveImagesExtension\ImageVector $imageVector, ?string $alternativeFormat = null): string
+    {
+        if (count($descendingImageWidths) > 1) {
+            // With srcset, the first matching width wins. We specify images in descending width order
+            // to get the largest matching image for best quality.
+            $srcsetElements = [];
+            foreach ($descendingImageWidths as $width) {
+                $imageUrl = $imageVector->url($width);
+                if ($alternativeFormat)
+                    $imageUrl = alternativeFormatUrl($imageUrl, $alternativeFormat);
+                $srcsetElements[] = "$imageUrl " . intval($width) . 'w';
+            }
+
+            $srcsetAttribute = ' srcset="' . implode(', ', $srcsetElements) . '"';
+        } else
+            $srcsetAttribute = '';
+
+        return $srcsetAttribute;
+    }
+
+    /**
+     * Returns a CSS string defining a background image, possibly in multiple variants.
+     *
+     * @param ResponsiveImagesExtension\ImageVector $imageVector
+     * @param string $imageSourceWidth
+     * @param string|null $className
+     * @return string
+     */
+    private function backgroundImageRules(ResponsiveImagesExtension\ImageVector $imageVector, string $imageSourceWidth, string $className, array $properties = []): string
+    {
+        $css = "";
+
+        $additionalProperties = "";
+        foreach ($properties as $propertyName => $propertyValue)
+            $additionalProperties .= " background-$propertyName: $propertyValue;";
+
+        $baseImageUrl = $imageVector->url($imageSourceWidth);
+        if ($this->alternativeFormats) {
+            $alternativeFormatsReversed = $this->alternativeFormats;
+            rsort($alternativeFormatsReversed);
+            foreach ($alternativeFormatsReversed as $alternativeFormat) {
+                $imageUrl = alternativeFormatUrl($baseImageUrl, $alternativeFormat);
+                $css .= " html.$alternativeFormat .$className { background-image: url('$imageUrl');$additionalProperties }\n";
+            }
+        }
+
+        $css .= ".$className { background-image: url('$baseImageUrl');$additionalProperties }\n";
+
+        return $css;
+    }
+}
+
+/**
+ * Returns an alternative format URL for the corresponding $baseUrl.
+ *
+ * @param string $baseUrl
+ * @param string $alternativeFormat
+ * @return string
+ */
+function alternativeFormatUrl(string $baseUrl, string $alternativeFormat): string
+{
+    return preg_replace('/\\.[^.\\s]+$/', '', $baseUrl) . ".$alternativeFormat";
 }
 
 
@@ -348,7 +419,7 @@ class ConditionalSizeList
     /**
      * Returns media queries for an image according to this list's conditions and sizes.
      *
-     * @param string $imageSourceWidthToExceed
+     * @param int $imageSourceWidthToExceed
      * @return MediaQueryList
      */
     public function mediaQueryList(int $imageSourceWidthToExceed): MediaQueryList
