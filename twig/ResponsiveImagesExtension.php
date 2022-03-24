@@ -99,7 +99,7 @@ class ResponsiveImagesExtension extends \Twig_Extension
             foreach ($this->alternativeFormats as $alternativeFormat) {
                 $imageUrl = alternativeFormatUrl($baseImageUrl, $alternativeFormat);
                 $srcsetAttribute = $this->srcsetAttribute($descendingImageWidths, $imageVector, $alternativeFormat);
-                $result .= " <source type=\"image/$alternativeFormat\" src=\"$imageUrl\"$srcsetAttribute$sizesAttribute>\n";
+                $result .= " <source type=\"image/$alternativeFormat\"$srcsetAttribute$sizesAttribute>\n";
             }
         }
 

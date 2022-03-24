@@ -68,7 +68,7 @@ Modern image formats such as WebP can drastically reduce image download sizes wh
 
 For each alternative image format, the plugin expects an image file with the alternative's extension (e.g. `.webp`) next to the corresponding base image file (typically JPEG or PNG). It will then prefer the alternative image if the browser supports it.
 
-To use alternative _background_ images, each page's `<html>` element must provide classes identifying browser support for alternative formats (e.g. `<html class="webp">`). You can use the provided Twig function `html_image_support_classes()` to achieve this (e.g. `<html class="{{ html_image_support_classes() }}>"`) for `webp` and `avif` formats, or use your own detection mechanism.
+To use alternative _background_ images, each page's `<html>` element must provide classes identifying browser support for alternative formats (e.g. `<html class="webp">`). You can use the provided Twig function `html_image_support_classes()` to achieve this (e.g. `<html class="{{ html_image_support_classes() }}">`) for `webp` and `avif` formats, or use your own detection mechanism.
 
 > :information_source: JavaScript detection, such as the one provided by [Modernizr](https://modernizr.com/download?webp-setclasses&q=webp), might not complete before images start to load. In this case, images can load twice, in different formats. 
 
