@@ -1,3 +1,9 @@
+# v3.2.0
+## 24-03-2022
+
+1. [](#improved)
+    * Support alternative image formats (e.g. WebP).
+
 # v3.1.0
 ## 22-03-2022
 
