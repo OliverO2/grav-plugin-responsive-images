@@ -1,3 +1,9 @@
+# v3.3.0
+## 24-03-2022
+
+1. [](#improved)
+    * Add Twig function html_image_support_classes().
+
 # v3.2.0
 ## 24-03-2022
 
