@@ -671,7 +671,7 @@ class MediaQuery
         $displayPixelDensity = floatToString($this->displayPixelDensity);
 
         $css = "(-webkit-min-device-pixel-ratio: $displayPixelDensity) and $minWidthCondition,";
-        $css .= " (min-resolution: ${displayResolutionDPI}dpi) and $minWidthCondition";
+        $css .= " (min-resolution: {$displayResolutionDPI}dpi) and $minWidthCondition";
 
         if (\Grav\Plugin\ResponsiveImagesExtension::$debug)
             $css .= $this->originsComment();
